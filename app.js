@@ -2,9 +2,18 @@
 const cookieParser = require('cookie-parser')
 const session = require('express-session')
 const express = require('express');
+const passport = require('./utils/pass');
 
 const app = express();
 const port = 3000;
+
+const loggedIn = (req, res, next) => {
+  if (req.user) {
+    next();
+  } else {
+    res.redirect('/form');
+  }
+};
 
 const username = 'foo';
 const password = 'bar';
@@ -19,6 +28,9 @@ app.use(session({
   saveUninitialized: true,
   cookie: {maxAge: 60*60*24},
 }));
+
+app.use(passport.initialize());
+app.use(passport.session());
 
 app.set('views', './views');
 app.set('view engine', 'pug');
@@ -40,28 +52,21 @@ app.get('/form', (req, res) => {
   res.render('form')
 });
 
-app.get('/secret', (req, res) => {
-  if(req.session.logged === true){
-    return res.render('secret')
-  }
+app.post('/login',
+    passport.authenticate('local', {failureRedirect: '/form'}),
+    (req, res) => {
+      console.log('success');
+      res.redirect('/secret');
+    });
 
-  res.redirect('/form');
-
-
+// modify app.get('/secret',...
+app.get('/secret', loggedIn, (req, res) => {
+  res.render('secret');
 });
 
-app.post('/login', (req, res) => {
-
-  const username1 = req.body.username;
-  const password1 = req.body.password;
-
-  if(username1 === username && password1 === password){
-    req.session.logged = true;
-    res.redirect('/secret')
-  } else {
-    req.session.logged = false;
-    res.redirect('/form')
-  }
-});
+app.get('/logout', (req, res)=>{
+  req.logout();
+  res.redirect('/')
+})
 
 app.listen(port, () => console.log(`Example app listening on port ${port}!`));
